@@ -61,6 +61,7 @@ function handyScroller(o){
 		this.stretchButton();
 		this.setPaddings();
 	}
+	createWheelBox.call(this);
 }
 
 function createBoxes(){
@@ -72,17 +73,10 @@ function createBoxes(){
 	this.contentBox = document.createElement("DIV");
 	this.contentBox.setAttribute("class","handyBox");
 	this.contentBox.style = "position:relative";
-
-	this.wheelBox = document.createElement("DIV");
-	this.wheelBox.setAttribute("class","handyWheelBox");
-	this.wheelBox.style = "position:absolute;right:0px;width:"+this.wheelX+"%;";
-	
-
 	for(;innerObj.length!==0;){
 		this.contentBox.appendChild(innerObj[0]);
 	}
 	this.mainBox.appendChild(this.contentBox);
-	this.mainBox.appendChild(this.wheelBox);
 }
 
 function createScrolls(){
@@ -127,6 +121,15 @@ function createScrolls(){
 	}
 }
 
+function createWheelBox(){
+	if((!this.isContentFit(1))&&(this.side!=="y")){
+		this.wheelBox = document.createElement("DIV");
+		this.wheelBox.setAttribute("class","handyWheelBox");
+		this.wheelBox.style = "position:absolute;right:0px;width:"+this.wheelX+"%;";
+		this.mainBox.appendChild(this.wheelBox);
+	}	
+}
+
 function createWheelEvent(){
 	var wheelMe = wheelScroll.bind(this);	
 	this.mainBox.addEventListener("wheel", wheelMe);
@@ -144,12 +147,16 @@ function createWheelEvent(){
 	}
 	
 	function wheelScroll(){
-		var e = window.event || e;
-		var wheel = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
 		this.xy = 1;
 		var side = ((this.getMouse()/this.props[1][5])*100)<(100-this.wheelX) ? 0:1;
 		this.xy = side;
 		
+		if(this.isContentFit(this.xy)){
+			return;
+		}
+		
+		var e = window.event || e;
+		var wheel = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
 		var move = this.xy===0 ? ((window.innerHeight/100)*this.scrollStep[this.xy]):((window.innerWidth/100)*this.scrollStep[this.xy]);
 		var pos = (this.props[this.xy][4]-this.props[this.xy][3]) - wheel*move;
 		
@@ -195,8 +202,12 @@ handyScroller.prototype.getMouse = function(){
 	return mouse;
 };
 
+handyScroller.prototype.isContentFit = function(xy){
+	return (this.props[xy][5]/this.props[xy][6])>=1;
+};
+
 handyScroller.prototype.stretchButton = function(){
-	if((this.props[this.xy][5]/this.props[this.xy][6])>=1){
+	if(this.isContentFit(this.xy)){
 		this.elements[this.xy][0].style.opacity = "0";
 		this.elements[this.xy][1].style.cursor = "default";
 		} else {
