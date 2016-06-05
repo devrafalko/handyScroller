@@ -9,6 +9,16 @@ window.onload = function(){
 			wheelX:30,
 			scrollStep:[1,1]
 	});
+	var newScroll2 = new handyScroller({
+			box:document.getElementById("innerContent"),
+			side: "xy",
+			stretch:[true,false],
+			divideCorner:[false,false],
+			scrollMargin:[false,false],
+			wheelOrient:"horizontally",
+			wheelX:30,
+			scrollStep:[1,1]
+	});
 };
 
 function handyScroller(o){
@@ -25,6 +35,7 @@ function handyScroller(o){
 	this.mainBox = o.box;
 	this.contentBox = null;
 	this.wheelBox = null;
+	this.scrollId = Date.now();
 	this.elements = [[null,  //0: Area		this.elementsY[0]
 					  null,  //1: Padding	this.elementsY[1]
 					  null], //2: Button	this.elementsY[2]
@@ -67,6 +78,8 @@ function handyScroller(o){
 	}
 	createWheelBox.call(this);
 }
+
+
 
 function createBoxes(){
 	var innerObj = this.mainBox.children;
@@ -132,9 +145,9 @@ function createWheelBox(){
 		this.wheelBox = document.createElement("DIV");
 		this.wheelBox.setAttribute("class","handyWheelBox");
 		if(this.wheelOrient==="vertically"){
-			setStyles(this.wheelBox,["position","bottom","height"],["absolute","0px",this.wheelX+"%"]);
+			setStyles(this.wheelBox,["position","pointerEvents","bottom","height"],["absolute","none","0px",this.wheelX+"%"]);
 			} else {
-				setStyles(this.wheelBox,["position","right","width"],["absolute","0px",this.wheelX+"%"]);
+				setStyles(this.wheelBox,["position","pointerEvents","right","width"],["absolute","none","0px",this.wheelX+"%"]);
 				}
 		this.mainBox.insertBefore(this.wheelBox,this.elements[0][0]);
 	} else {
@@ -143,14 +156,16 @@ function createWheelBox(){
 }
 
 function createWheelEvent(){
-	var wheelMe = wheelScroll.bind(this);	
+	var wheelMe = wheelScroll.bind(this);
+	var bOver = mouseOverMe.bind(this);
 	this.mainBox.addEventListener("wheel", wheelMe);
-	this.mainBox.addEventListener("mouseover", mouseOverMe);
-	this.mainBox.addEventListener("mouseout", mouseOutMe);
+	this.mainBox.addEventListener("mouseover", bOver,true);
+	this.mainBox.addEventListener("mouseout", mouseOutMe,true);
 	
 	function mouseOverMe(){
 		window.onwheel=function(){return false;};
 		window.onmousewheel=function(){return false;};
+		this.constructor.prototype.currentId = this.scrollId;
 	}
 	
 	function mouseOutMe(){
@@ -180,13 +195,17 @@ handyScroller.prototype.scrollMove = function(){
 	countMovements.call(this,pos);
 };
 
+handyScroller.prototype.currentId = null;
+
 function countMovements(pos){
+	if(this.scrollId!==this.constructor.prototype.currentId){
+		return;
+	}	
 	
 	var newPos = pos<0 ? 0:(pos+this.props[this.xy][9])>this.props[this.xy][8] ? this.props[this.xy][8]-this.props[this.xy][9]:pos;
 	var newPosProc = (newPos/this.props[this.xy][8])*100;
 	setStyles(this.elements[this.xy][2],[[this.stylesXY[this.xy][0]]],[newPosProc + "%"]);
 	this.refreshMe();
-	
 	var scrollMargin = this.scrollMargin[this.xy] ? this.scrollThick:[0,0];
 	var scrollProc = (((this.props[this.xy][4]-this.props[this.xy][3])/(this.props[this.xy][8]-this.props[this.xy][9]))*100);
 	var boxProc = -(((this.props[this.xy][6]+scrollMargin[this.xy]-this.props[this.xy][5])/this.props[this.xy][5])*scrollProc);
