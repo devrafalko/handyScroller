@@ -4,6 +4,7 @@ window.onload = function(){
 			side: "xy",
 			stretch:[true,false],
 			divideCorner:true,
+			scrollMargin:true,
 			wheelOrient:"horizontally",
 			wheelX:30,
 			scrollStep:[1,1]
@@ -14,6 +15,7 @@ function handyScroller(o){
 	this.stretch = o.stretch;
 	this.buttonClick = null;
 	this.divideCorner = o.divideCorner;
+	this.scrollMargin = o.scrollMargin;
 	this.side = o.side;
 	this.xy = null;
 	this.scrollStep = o.scrollStep;
@@ -130,7 +132,6 @@ function createWheelBox(){
 		this.wheelBox = document.createElement("DIV");
 		this.wheelBox.setAttribute("class","handyWheelBox");
 		if(this.wheelOrient==="vertically"){
-			console.log(this.wheelX+"%");
 			setStyles(this.wheelBox,["position","bottom","height"],["absolute","0px",this.wheelX+"%"]);
 			} else {
 				setStyles(this.wheelBox,["position","right","width"],["absolute","0px",this.wheelX+"%"]);
@@ -159,7 +160,6 @@ function createWheelEvent(){
 	
 	function wheelScroll(){
 		this.xy = this.wheelOrient === "vertically" ? 0:1;
-		console.log(this.wheelX);
 		var side = ((this.getMouse()/this.props[this.xy][5])*100)<(100-this.wheelX) ? 0:1;
 		this.xy = this.side==="x" ? 1:this.side==="y" ? 0:side;
 		if(this.isContentFit(this.xy)){
@@ -187,8 +187,9 @@ function countMovements(pos){
 	setStyles(this.elements[this.xy][2],[[this.stylesXY[this.xy][0]]],[newPosProc + "%"]);
 	this.refreshMe();
 	
+	var scrollMargin = this.scrollMargin ? this.scrollThick:[0,0];
 	var scrollProc = (((this.props[this.xy][4]-this.props[this.xy][3])/(this.props[this.xy][8]-this.props[this.xy][9]))*100);
-	var boxProc = -(((this.props[this.xy][6]-this.props[this.xy][5])/this.props[this.xy][5])*scrollProc);
+	var boxProc = -(((this.props[this.xy][6]+scrollMargin[this.xy]-this.props[this.xy][5])/this.props[this.xy][5])*scrollProc);
 	setStyles(this.contentBox,[[this.stylesXY[this.xy][0]]],[boxProc + "%"]);
 }
 
@@ -235,10 +236,12 @@ handyScroller.prototype.stretchButton = function(){
 };
 
 handyScroller.prototype.setPaddings = function(){
-	this.scrollThick = this.divideCorner ? this.scrollThick:[0,0];
-	var paddingProc = 100-((this.scrollThick[this.xy]/this.props[this.xy][7])*100);
+	var scrollThick = this.divideCorner ? this.scrollThick:[0,0];
+	var paddingProc = 100-((scrollThick[this.xy]/this.props[this.xy][7])*100);
 	setStyles(this.elements[this.xy][0],[[this.stylesXY[this.xy][1]]],[paddingProc+"%"]);
 };
+
+
 
 function setStyles(object,props,vals){
 	for(var i=0;i<props.length;i++){
