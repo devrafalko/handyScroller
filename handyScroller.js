@@ -3,8 +3,8 @@ window.onload = function(){
 			box:document.getElementById("panelContent"),
 			side: "xy",
 			stretch:[true,false],
-			divideCorner:true,
-			scrollMargin:true,
+			divideCorner:[false,false],
+			scrollMargin:[false,false],
 			wheelOrient:"horizontally",
 			wheelX:30,
 			scrollStep:[1,1]
@@ -187,7 +187,7 @@ function countMovements(pos){
 	setStyles(this.elements[this.xy][2],[[this.stylesXY[this.xy][0]]],[newPosProc + "%"]);
 	this.refreshMe();
 	
-	var scrollMargin = this.scrollMargin ? this.scrollThick:[0,0];
+	var scrollMargin = this.scrollMargin[this.xy] ? this.scrollThick:[0,0];
 	var scrollProc = (((this.props[this.xy][4]-this.props[this.xy][3])/(this.props[this.xy][8]-this.props[this.xy][9]))*100);
 	var boxProc = -(((this.props[this.xy][6]+scrollMargin[this.xy]-this.props[this.xy][5])/this.props[this.xy][5])*scrollProc);
 	setStyles(this.contentBox,[[this.stylesXY[this.xy][0]]],[boxProc + "%"]);
@@ -236,7 +236,7 @@ handyScroller.prototype.stretchButton = function(){
 };
 
 handyScroller.prototype.setPaddings = function(){
-	var scrollThick = this.divideCorner ? this.scrollThick:[0,0];
+	var scrollThick = this.divideCorner[this.xy] ? this.scrollThick:[0,0];
 	var paddingProc = 100-((scrollThick[this.xy]/this.props[this.xy][7])*100);
 	setStyles(this.elements[this.xy][0],[[this.stylesXY[this.xy][1]]],[paddingProc+"%"]);
 };
