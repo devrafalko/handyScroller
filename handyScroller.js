@@ -113,12 +113,14 @@ function createScrolls(){
 		document.body.addEventListener("mouseup",releaseMe);
 		document.body.addEventListener("mousemove",scrollMove);
 		setStyles(document.body,["cursor"],["pointer"]);
+		setStyles(this.contentBox,["webkitTouchCallout","webkitUserSelect","khtmlUserSelect","mozUserSelect","msUserSelect","oUserSelect","UserSelect"],["none","none","none","none","none","none","none"]);
 	}
 
 	function releaseMe(){
 		document.body.removeEventListener("mouseup",releaseMe);
 		document.body.removeEventListener("mousemove",scrollMove);
 		setStyles(document.body,["cursor"],["default"]);
+		setStyles(this.contentBox,["webkitTouchCallout","webkitUserSelect","khtmlUserSelect","mozUserSelect","msUserSelect","oUserSelect","UserSelect"],["all","all","all","all","all","all","all"]);
 	}
 }
 
@@ -211,7 +213,6 @@ handyScroller.prototype.stretchButton = function(){
 	if(this.isContentFit(this.xy)){
 		setStyles(this.elements[this.xy][0],["opacity"],["0"]);
 		setStyles(this.elements[this.xy][1],["cursor"],["default"]);
-		
 		
 		} else {
 			setStyles(this.elements[this.xy][0],["opacity"],["1"]);
