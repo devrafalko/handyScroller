@@ -2,7 +2,7 @@ window.onload = function(){
 	var newScroll = new handyScroller({
 			box:document.getElementById("panelContent"),
 			side: "xy",
-			stretch:true,
+			stretch:[true,false],
 			divideCorner:true,
 			wheelX:30,
 			scrollStep:[1,1]
@@ -126,7 +126,7 @@ function createWheelBox(){
 		this.wheelBox = document.createElement("DIV");
 		this.wheelBox.setAttribute("class","handyWheelBox");
 		this.wheelBox.style = "position:absolute;right:0px;width:"+this.wheelX+"%;";
-		this.mainBox.appendChild(this.wheelBox);
+		this.mainBox.insertBefore(this.wheelBox,this.elements[0][0]);
 	}	
 }
 
@@ -192,7 +192,7 @@ handyScroller.prototype.refreshMe = function(){
 };
 
 handyScroller.prototype.prepareToMove = function(){
-	var isOnside = !this.stretch ? false:((this.getMouse()>=this.props[this.xy][4]-this.props[this.xy][3]) && (this.getMouse()<this.props[this.xy][4]+this.props[this.xy][9]-this.props[this.xy][3])) ? true:false;
+	var isOnside = !this.stretch[this.xy] ? false:((this.getMouse()>=this.props[this.xy][4]-this.props[this.xy][3]) && (this.getMouse()<this.props[this.xy][4]+this.props[this.xy][9]-this.props[this.xy][3])) ? true:false;
 	this.buttonClick = isOnside ? -(this.getMouse()-(this.props[this.xy][4]-this.props[this.xy][3])):-(this.props[this.xy][9]/2);
 };
 
@@ -213,7 +213,7 @@ handyScroller.prototype.stretchButton = function(){
 		} else {
 			this.elements[this.xy][0].style.opacity = "1";
 			this.elements[this.xy][1].style.cursor = "pointer";
-			if(this.stretch){
+			if(this.stretch[this.xy]){
 				this.elements[this.xy][2].style[this.stylesXY[this.xy][1]] = ((this.props[this.xy][5]/this.props[this.xy][6])*100) + "%";
 				} else {
 					this.elements[this.xy][2].style[this.stylesXY[this.xy][1]] = null;
