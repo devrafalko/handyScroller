@@ -4,7 +4,7 @@ window.onload = function(){
 			side: "xy",
 			stretch:[true,false],
 			divideCorner:true,
-			wheelOrient:"horizontally",
+			wheelOrient:"vertically",
 			wheelX:30,
 			scrollStep:[1,1]
 	});
@@ -17,6 +17,7 @@ function handyScroller(o){
 	this.side = o.side;
 	this.xy = null;
 	this.scrollStep = o.scrollStep;
+	this.wheelOrient = o.wheelOrient;
 	this.wheelX = o.wheelX;
 	this.stylesXY = [["top","height","right","Y","width"],["left","width","bottom","X","height"]];
 	this.mainBox = o.box;
@@ -128,7 +129,12 @@ function createWheelBox(){
 	if((!this.isContentFit(1))&&(this.side!=="y")){
 		this.wheelBox = document.createElement("DIV");
 		this.wheelBox.setAttribute("class","handyWheelBox");
-		setStyles(this.wheelBox,["position","right","width"],["absolute","0px",this.wheelX+"%"]);
+		if(this.wheelOrient==="vertically"){
+			console.log(this.wheelX+"%");
+			setStyles(this.wheelBox,["position","bottom","height"],["absolute","0px",this.wheelX+"%"]);
+			} else {
+				setStyles(this.wheelBox,["position","right","width"],["absolute","0px",this.wheelX+"%"]);
+				}
 		this.mainBox.insertBefore(this.wheelBox,this.elements[0][0]);
 	}	
 }
@@ -150,7 +156,7 @@ function createWheelEvent(){
 	}
 	
 	function wheelScroll(){
-		this.xy = 1;
+		this.xy = this.wheelOrient === "vertically" ? 0:1;
 		var side = ((this.getMouse()/this.props[1][5])*100)<(100-this.wheelX) ? 0:1;
 		this.xy = side;
 		
