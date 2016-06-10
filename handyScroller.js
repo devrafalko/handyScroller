@@ -2,10 +2,10 @@ window.onload = function(){
 	var newScroll = new handyScroller({
 			box:document.getElementById("panelContent"),
 			side: "xy",
-			stretch:[false,false],
+			stretch:[false,true],
 			inset:[false,false],
 			divideCorner:[true,true],
-			scrollMargin:[true,true],
+			scrollMargin:[false,false],
 			wheelOrient:"vertical",
 			wheelX:10,
 			scrollStep:[10,10]
@@ -64,7 +64,6 @@ function validProperties(){
 		var x = this.side==="x" ? 0:1;
 		this.stretch[x] = false;
 		this.divideCorner[1-x] = false;
-		this.scrollMargin[x] = false;
 		this.wheelOrient = null;
 		this.wheelX = null;
 		this.scrollStep[x] = null;
@@ -118,6 +117,7 @@ function setScrollers(){
 	}
 	for(var x=0;x<2;x++){
 		if(!this.inset[x]){
+			console.log(this.inset[x]);
 			setStyles(this.elements[x][0],[this.stylesXY[x][2]],[-this.rP(x,3,2)+"px"]);
 		}
 	}
@@ -129,6 +129,8 @@ function stretchButton(){
 		if(isContentFit.call(this,x)||this.side===s[x]){
 			setStyles(this.elements[x][0],["visibility"],["hidden"]);
 			setStyles(this.elements[x][1],["cursor"],["default"]);
+			this.scrollMargin[x] = false;
+			this.inset[x] = true;
 			} else {
 				setStyles(this.elements[x][0],["visibility"],["visible"]);
 				setStyles(this.elements[x][1],["cursor"],["pointer"]);
@@ -207,7 +209,7 @@ function createWheelEvent(){
 	}
 	
 	function wheelScroll(){
-		if(this.scrollId!==this.constructor.prototype.currentId){
+		if(this.scrollId!==this.constructor.prototype.currentId || (isContentFit.call(this,0) && isContentFit.call(this,1))){
 			return;
 		}
 		this.xy = (this.wheelOrient==="vertical") ? 1:0;
