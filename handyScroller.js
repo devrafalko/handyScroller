@@ -1,26 +1,42 @@
-window.onload = function(){
+window.onload = function(e){
 	var newScroll = new handyScroller({
 			box:document.getElementById("panelContent"),
 			side: "xy",
-			inset:[true,false],
+			inset:[true,true],
 			scrollMargin:[true,true],
-			stretch:[false,false],
+			stretch:[true,true],
 			divideCorner:[true,true],
 			wheelOrient:"vertical",
 			wheelX:10,
-			scrollStep:[10,10]
+			scrollStep:[10,10],
+			scrollAlign:[0,0,0,0]
 	});
-//	var newScroll2 = new handyScroller({
-//			box:document.getElementById("innerContent"),
-//			side: "xy",
-//			stretch:[false,false],
-//			inset:[true,true],
-//			divideCorner:[true,true],
-//			scrollMargin:[false,false],
-//			wheelOrient:"horizontal",
-//			wheelX:30,
-//			scrollStep:[1,1]
-//	});
+
+	var newScroll2 = new handyScroller({
+			box:document.getElementById("innerContent"),
+			side: "xy",
+			stretch:[true,true],
+			inset:[true,true],
+			divideCorner:[true,true],
+			scrollMargin:[true,true],
+			wheelOrient:"horizontal",
+			wheelX:30,
+			scrollStep:[1,1],
+			scrollAlign:[0,0,0,0]
+	});
+
+	var newScroll3 = new handyScroller({
+			box:document.getElementById("newInner"),
+			side: "xy",
+			stretch:[false,false],
+			inset:[true,true],
+			divideCorner:[true,true],
+			scrollMargin:[true,true],
+			wheelOrient:"vertical",
+			wheelX:30,
+			scrollStep:[1,1],
+			scrollAlign:[0,0,0,0]
+	});
 };
 
 function handyScroller(o){
@@ -33,6 +49,8 @@ function handyScroller(o){
 	this.wheelX = o.wheelX;
 	this.mainBox = o.box;
 	this.inset = o.inset;
+	this.scrollAlign = o.scrollAlign;
+	//this.moveObj = null;
 	this.contentBox = null;
 	this.wheelBox = null;
 	this.scrollId = Date.now();
@@ -43,15 +61,21 @@ function handyScroller(o){
 					  null,   //Padding		this.elements[1][1]
 					  null]]; //Button		this.elements[1][2]
 	this.wheelXY = [false,false];
+	this.hashdetect = false;
+	this.constructor.prototype.objectList.push(this);
+
 	createBoxes.call(this);
 	validation.call(this);
-	
 	blockScroll.call(this);
+	hashDetector.call(this);
+	
 }
 
+handyScroller.prototype.objectList = [];
 handyScroller.prototype.currentId = null;
+handyScroller.prototype.hashEvents = false;
 handyScroller.prototype.buttonClick = null;
-handyScroller.prototype.stylesXY = [["top","height","right","Y","width","scrollTop"],["left","width","bottom","X","height","scrollLeft"]];	//DODAĆ DO OUTEROBJECT
+handyScroller.prototype.stylesXY = [["top","height","right","Y","width","scrollTop"],["left","width","bottom","X","height","scrollLeft"]];
 
 function isFit(obj,xy){
 	var margin = obj.scrollMargin[xy] && obj.elements[1-xy][0] ? obj.rP(1-xy,3,2):0;
@@ -62,12 +86,12 @@ function validation(){
 	var x,b=[0,1];
 	var s = ["y","x","xy"];
 	refreshScrollMargin.call(this);
-	
+
 	for(x in b){
 		this.scrollMargin[x] = !this.inset[x] ? false:this.scrollMargin[x];
 		createScrollbars.call(this,x,1);
 	}
-	
+
 	if((isFit(this,0)||this.side===s[1])&&(isFit(this,1)||this.side===s[0])){
 		windowWheelBlock.call(this,0);
 		} else {
@@ -107,6 +131,7 @@ function validation(){
 }
 
 function createBoxes(){
+	this.mainBox.classList.add("handyContainer");
 	var isStatic = window.getComputedStyle(this.mainBox,null).getPropertyValue("position")!=="static"? ["position",null]:["position","relative"];
 	var masking = document.createElement("DIV");
 	this.contentBox = document.createElement("DIV");
@@ -224,7 +249,6 @@ function divideMe(s,b,c){
 	if(!b){
 		var	a = c?this.rP(1-s,3,2):0;
 		var d = this.divideCorner[s]?this.rP(1-s,3,2):0;
-		console.log(a,d);
 		var paddingProc = 100-(((-a+d)/this.rP(s,3,1))*100);
 		setStyles(this.elements[s][0],[[this.stylesXY[s][1]]],[paddingProc+"%"]);
 	}
@@ -244,7 +268,7 @@ function setWheelEvent(){
 		}
 				
 	function wheelScroll(s){
-		if(this.scrollId!==this.constructor.prototype.currentId){
+		if(this.scrollId!==this.constructor.prototype.currentId){	//można zmienić na this.currentId i stestować
 			return;
 		}
 		var or = this.wheelOrient==="vertical" ? 1:0;
@@ -278,13 +302,16 @@ function prepareToMove(s){
 function setDimentions(pos,s,d){
 	var o = [retMarg(this,s),this.elements[s][2],this.contentBox];
 	var l = [[5,4,0,4,o[1],1,1,o[2]],[0,1,o[0],0,o[2],-1,5,o[1]]];
-	var newPos = pos<0 ? 0:(pos+this.rP(s,l[d][0],1))>this.rP(s,l[d][1],1)+l[d][2] ? this.rP(s,l[d][1],1)-this.rP(s,l[d][0],1)+l[d][2]:pos;
-	var newPosProc = (newPos/(this.rP(s,l[d][3],1)))*100;
-	setStyles(l[d][4],[[this.stylesXY[s][0]]],[(l[d][5]*newPosProc) + "%"]);
+	var newPx = pos<0 ? 0:(pos+this.rP(s,l[d][0],1))>this.rP(s,l[d][1],1)+l[d][2] ? this.rP(s,l[d][1],1)-this.rP(s,l[d][0],1)+l[d][2]:pos;
+	var newProc = (newPx/(this.rP(s,l[d][3],1)))*100;
+	var setUnit = !d ? [newProc,"%"]:[newPx,"px"];
+	setStyles(l[d][4],[[this.stylesXY[s][0]]],[(l[d][5]*setUnit[0]) + setUnit[1]]);
 	
 	var total = ((this.rP(s,l[d][0],0)-this.rP(s,l[d][1],0))/(this.rP(s,l[d][1],1)+l[d][2]-this.rP(s,l[d][0],1)))*100;
-	var proc = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/this.rP(s,l[1-d][3],1));
-	setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[proc + "%"]);
+//	var proc = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/this.rP(s,l[1-d][3],1));
+//	setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[proc + "%"]);
+	var proc = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/100);
+	setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[proc + "px"]);
 }
 
 handyScroller.prototype.rP = function(side,object,property){
@@ -305,28 +332,124 @@ function retMarg(obj,s){
 }
 
 function blockScroll(){
-	var binded = blockMe.bind(this);
 	var c = this.mainBox.children[0];
-	c.addEventListener("scroll",binded);
-	
+	var scrollB = blockMe.bind(this);
+	c.addEventListener("scroll",scrollB);
 	function blockMe(){
 		if(c.scrollLeft!==0){
-			b.call(this,1,c.scrollLeft);
-			c.scrollLeft = 0;
+		c.scrollLeft = 0;
 		}
 		if(c.scrollTop!==0){
-			b.call(this,0,c.scrollTop);
-			c.scrollTop = 0;
+		c.scrollTop = 0;
 		}
 	}
-	function b(s,scroll){
-		var pos = ((scroll)/(this.rP(s,1,1)-(this.rP(s,0,1))));
-		console.log(this.rP(s,5,1));
-		var butPx = (this.rP(s,4,1)-this.rP(s,5,1))*pos;							
-		setDimentions.call(this,butPx,s,0);
+}
+
+function hashDetector(){
+	if(!this.hashEvents){
+		this.constructor.prototype.hashEvents = true;
+		window.addEventListener("click",detectClickHash);
+	}
+
+	var hash = document.getElementById(location.hash.slice(1));
+	if(hash) getHashObjects(document.body,hash);
+	
+	function detectClickHash(e){
+		if(e.target.nodeName !== "A") return;
+		if(!e.target.getAttribute("href")) return;
+		if(e.target.getAttribute("href").charCodeAt(0)!==35) return;
+		var hashElem = document.getElementById(e.target.getAttribute("href").slice(1));
+		getHashObjects(e.target,hashElem);
+	}
+	
+	function getHashObjects(target,hash){
+		var x = [target,hash];
+		var nL = [[],[]];
+		for(var y=1;y>=0;y--){
+			while(x[y]!==null){
+				if(x[y].getAttribute("class")==="handyContainer"){
+					nL[y].push(x[y]);
+				}
+				x[y] = x[y].parentElement;
+			}
+			if(nL[1].length===0) return;
+			nL[y].reverse();
+			nL[y].forEach(getHandyObject);
+		}
+			function getHandyObject(curr,ind,arr){
+				var objL = handyScroller.prototype.objectList;
+				for(var x=0;x<objL.length;x++){
+					if(curr.id===objL[x].mainBox.id){
+						arr[ind] = objL[x];
+						}
+					}
+				}
+		var nnL;
+		if(nL[0][0] === nL[1][0]){
+			var spl=0;
+			for(var bb=1;bb<nL[1].length;bb++){
+				if(nL[1][bb]===nL[0][bb]){
+					spl = bb;
+					} else {
+						break;
+						}
+			}
+			nnL = nL[1].slice(spl);
+			} else {
+				nnL = nL[1].slice();
+				}
+		alignBoxes(nnL,hash);
+	}
+}
+
+function alignBoxes(boxList,hashElem){
+	var d = [["height","top"],["width","left"]];
+	
+	for(var rr=0;rr<2;rr++){
+		for(var ss=0;ss<boxList.length;ss++){
+			if(boxList[ss].elements[rr][0]===null) continue;
+			setDimentions.call(boxList[ss],0,rr,1);
+		}
+	}
+	
+	function cM(side,object){
+		return boxList[object].scrollMargin[1-side] ? boxList[object].elements[1-side][0].getBoundingClientRect()[d[side][0]]:0;
+	}
+	var fB = boxList[0].mainBox.getBoundingClientRect();
+	var h = hashElem.getBoundingClientRect();
+	
+	boxList.reverse();
+	for(var xx=0;xx<2;xx++){
+		var destT = fB[d[xx][1]]+((fB[d[xx][0]]-cM(xx,0))*(boxList[0].scrollAlign[xx*2]/100)) + (h[d[xx][0]]*(boxList[0].scrollAlign[xx*2+1]/100));
+		var vOT = hashElem;
+		var vOB = hashElem;
+		
+		for(var x=0;x<boxList.length;x++){
+			if(boxList[x].elements[xx][0]===null) continue;
+			
+			var move;
+			var cB = boxList[x].mainBox.getBoundingClientRect();
+			var cT = boxList[x].contentBox.getBoundingClientRect()[d[xx][1]];
+			var vT = vOT.getBoundingClientRect()[d[xx][1]];
+			var vcB = vOB.getBoundingClientRect();
+			var vB = vcB[d[xx][1]] + vcB[d[xx][0]];
+			if((x===boxList.length-1)||(destT>=cB[d[xx][1]]&&destT+h[d[xx][0]]<=(cB[d[xx][1]]+cB[d[xx][0]]))){
+				move = (cB[d[xx][1]]-cT) + (vT - destT);
+				setDimentions.call(boxList[x],move,xx,1);
+				} else {
+					var tV = Math.abs(cB[d[xx][1]]-destT);
+					var bV = Math.abs((cB[d[xx][1]]+cB[d[xx][0]]-cM(xx,x))-destT+h[d[xx][0]]);
+					move = tV<=bV ? vT-cT:(vB-cT)-cB[d[xx][0]]+cM(xx,x);
+					var scr = tV<=bV ? cB[d[xx][1]]-vT:(cB[d[xx][1]]+cB[d[xx][0]])-vB-cM(xx,x);
+					vOT = (vT+scr)<cB[d[xx][1]] ? boxList[x].mainBox:vOT;
+					vOB = (vB+scr)>(cB[d[xx][1]]+cB[d[xx][0]]) ? boxList[x].mainBox:vOB;
+					setDimentions.call(boxList[x],move,xx,1);
+					}
+		}
 	}
 }
 
 function positionContent(){
 	
 }
+
