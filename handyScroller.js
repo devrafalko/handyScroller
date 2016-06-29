@@ -3,7 +3,7 @@ window.onload = function(e){
 			box:document.getElementById("panelContent"),
 			side: "xy",
 			inset:[true,true],
-			scrollMargin:[false,false],
+			scrollMargin:[true,true],
 			stretch:[true,true],
 			divideCorner:[true,true],
 			wheelOrient:"vertical",
@@ -51,7 +51,6 @@ function handyScroller(o){
 	this.mainBox = o.box;
 	this.inset = o.inset;
 	this.scrollAlign = o.scrollAlign;
-	//this.moveObj = null;
 	this.contentBox = null;
 	this.wheelBox = null;
 	this.wheelEvent = false;
@@ -70,7 +69,6 @@ function handyScroller(o){
 	validation.call(this);
 	blockScroll.call(this);
 	hashDetector.call(this);
-	
 }
 
 handyScroller.prototype.objectList = [];
@@ -79,15 +77,15 @@ handyScroller.prototype.hashEvents = false;
 handyScroller.prototype.buttonClick = null;
 handyScroller.prototype.stylesXY = [["top","height","right","Y","width","scrollTop"],["left","width","bottom","X","height","scrollLeft"]];
 
-function isFit(obj,xy){
-	var margin = obj.scrollMargin[xy] && obj.elements[1-xy][0] ? obj.rP(1-xy,3,2):0;
-	return ((obj.rP(xy,0,1)-margin)/obj.rP(xy,1,1))>=1;
-}
-
 window.onresize = function(){
 	var obj = handyScroller.prototype.objectList[0];
 	validation.call(obj);
 };
+
+function isFit(obj,xy){
+	var margin = obj.scrollMargin[xy] && obj.elements[1-xy][0] ? obj.rP(1-xy,3,2):0;
+	return ((obj.rP(xy,0,1)-margin)/obj.rP(xy,1,1))>=1;
+}
 
 function validation(){
 	var x,b=[0,1];
@@ -103,7 +101,9 @@ function validation(){
 		windowWheelBlock.call(this,0);
 		} else {
 			windowWheelBlock.call(this,1);
-			}	
+			}
+			
+	
 	
 	if(this.side===s[2] && !isFit(this,0) && !isFit(this,1)){
 		createWheelArea.call(this,1);
@@ -113,11 +113,6 @@ function validation(){
 			refreshStretch.call(this,x);
 			positionContent.call(this,x);
 		}
-		
-		for(x in b){
-		setDimentions.call(this,this.contentScroll[x],x,1);
-		}
-		
 	} else {
 		createWheelArea.call(this,0);
 		for(x in b){
@@ -138,6 +133,14 @@ function validation(){
 			}
 		}
 	}
+	
+	for(x in b){
+		if(!!this.elements[x][0]){
+			setDimentions.call(this,this.contentScroll[x],x,1);
+			console.log(x);
+		}
+	}
+	
 	setWheelEvent.call(this);
 }
 
@@ -161,9 +164,7 @@ function createBoxes(){
 }
 
 function refreshScrollMargin(){
-	for(var x=0;x<2;x++){
-		this.scrollMargin[x] = this.args.scrollMargin[x];
-	}
+	this.scrollMargin = this.args.scrollMargin.slice();
 }
 
 function createWheelArea(state){
