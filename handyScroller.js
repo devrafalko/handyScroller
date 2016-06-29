@@ -3,7 +3,7 @@ window.onload = function(e){
 			box:document.getElementById("panelContent"),
 			side: "xy",
 			inset:[true,true],
-			scrollMargin:[true,true],
+			scrollMargin:[false,false],
 			stretch:[true,true],
 			divideCorner:[true,true],
 			wheelOrient:"vertical",
@@ -40,6 +40,7 @@ window.onload = function(e){
 };
 
 function handyScroller(o){
+	this.args = o;
 	this.stretch = o.stretch;
 	this.divideCorner = o.divideCorner;
 	this.scrollMargin = o.scrollMargin;
@@ -53,6 +54,8 @@ function handyScroller(o){
 	//this.moveObj = null;
 	this.contentBox = null;
 	this.wheelBox = null;
+	this.wheelEvent = false;
+	this.contentScroll = [0,0];
 	this.scrollId = Date.now();
 	this.elements = [[null,   //Area		this.elements[0][0]
 					  null,   //Padding		this.elements[0][1]
@@ -61,7 +64,6 @@ function handyScroller(o){
 					  null,   //Padding		this.elements[1][1]
 					  null]]; //Button		this.elements[1][2]
 	this.wheelXY = [false,false];
-	this.hashdetect = false;
 	this.constructor.prototype.objectList.push(this);
 
 	createBoxes.call(this);
@@ -81,6 +83,11 @@ function isFit(obj,xy){
 	var margin = obj.scrollMargin[xy] && obj.elements[1-xy][0] ? obj.rP(1-xy,3,2):0;
 	return ((obj.rP(xy,0,1)-margin)/obj.rP(xy,1,1))>=1;
 }
+
+window.onresize = function(){
+	var obj = handyScroller.prototype.objectList[0];
+	validation.call(obj);
+};
 
 function validation(){
 	var x,b=[0,1];
@@ -106,9 +113,13 @@ function validation(){
 			refreshStretch.call(this,x);
 			positionContent.call(this,x);
 		}
+		
+		for(x in b){
+		setDimentions.call(this,this.contentScroll[x],x,1);
+		}
+		
 	} else {
 		createWheelArea.call(this,0);
-		
 		for(x in b){
 			if(!((this.side===s[x]||this.side===s[2])&&!isFit(this,x))){
 				this.scrollMargin[x] = false;
@@ -151,7 +162,7 @@ function createBoxes(){
 
 function refreshScrollMargin(){
 	for(var x=0;x<2;x++){
-		this.scrollMargin[x] = this.constructor.arguments[0].scrollMargin[x];
+		this.scrollMargin[x] = this.args.scrollMargin[x];
 	}
 }
 
@@ -188,7 +199,6 @@ function windowWheelBlock(state){
 
 function createScrollbars(z,state){
 	if(state&&!this.elements[z][0]){
-
 		var e = ["Box","Area","er"];
 		var p = [["position",this.stylesXY[z][0],this.stylesXY[z][2],this.stylesXY[z][1],"boxSizing"],
 				 ["position","cursor","top","left","width","height","boxSizing","padding","margin"],
@@ -218,7 +228,7 @@ function createScrollbars(z,state){
 			this.mainBox.removeChild(this.elements[z][0]);
 			this.elements[z] = [null,null,null];
 			}
-	
+			
 			function clickMe(obj){
 				var s = Number(obj.parentNode.getAttribute("data-side"));
 				bindedR = releaseMe.bind(this);
@@ -226,15 +236,15 @@ function createScrollbars(z,state){
 				prepareToMove.call(this,s);
 				scrollMove.call(this,s);
 				prepareToMove.call(this,s);
-				document.body.addEventListener("mouseup",bindedR);
-				document.body.addEventListener("mousemove",bindedS);
+				window.addEventListener("mouseup",bindedR);
+				window.addEventListener("mousemove",bindedS);
 				setStyles(document.body,["cursor"],["pointer"]);
 				setStyles(this.contentBox,["webkitTouchCallout","webkitUserSelect","khtmlUserSelect","mozUserSelect","msUserSelect","oUserSelect","UserSelect"],["none","none","none","none","none","none","none"]);
 			}
-
+			
 			function releaseMe(){
-				document.body.removeEventListener("mouseup",bindedR);
-				document.body.removeEventListener("mousemove",bindedS);
+				window.removeEventListener("mouseup",bindedR);
+				window.removeEventListener("mousemove",bindedS);
 				setStyles(document.body,["cursor"],["default"]);
 				setStyles(this.contentBox,["webkitTouchCallout","webkitUserSelect","khtmlUserSelect","mozUserSelect","msUserSelect","oUserSelect","UserSelect"],["all","all","all","all","all","all","all"]);
 			}
@@ -259,16 +269,15 @@ function divideMe(s,b,c){
 
 function setWheelEvent(){
 	var e = this.elements;
-	var s = e[0][0]&&e[1][0]? 2:e[0][0]?0:e[1][0]?1:-1;
-	var binded = wheelScroll.bind(this,s);
-	if(s>=0){
-		this.mainBox.addEventListener("wheel", binded);
-		} else {
-			this.mainBox.removeEventListener("wheel", binded);
+	var newBind = wheelScroll.bind(this);
+	if(this.wheelEvent===false){
+		this.mainBox.addEventListener("wheel", newBind);
+		this.wheelEvent = true;
 		}
-				
-	function wheelScroll(s){
-		if(this.scrollId!==this.constructor.prototype.currentId){	//można zmienić na this.currentId i stestować
+	
+	function wheelScroll(){
+		var s = e[0][0]&&e[1][0]? 2:e[0][0]?0:e[1][0]?1:-1;
+		if(this.scrollId!==this.constructor.prototype.currentId||s===-1){
 			return;
 		}
 		var or = this.wheelOrient==="vertical" ? 1:0;
@@ -308,10 +317,10 @@ function setDimentions(pos,s,d){
 	setStyles(l[d][4],[[this.stylesXY[s][0]]],[(l[d][5]*setUnit[0]) + setUnit[1]]);
 	
 	var total = ((this.rP(s,l[d][0],0)-this.rP(s,l[d][1],0))/(this.rP(s,l[d][1],1)+l[d][2]-this.rP(s,l[d][0],1)))*100;
-//	var proc = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/this.rP(s,l[1-d][3],1));
-//	setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[proc + "%"]);
 	var proc = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/100);
 	setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[proc + "px"]);
+	
+	this.contentScroll[s] = d ? newPx:-proc;
 }
 
 handyScroller.prototype.rP = function(side,object,property){
