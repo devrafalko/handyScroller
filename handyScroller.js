@@ -3,7 +3,7 @@ window.onload = function(e){
 			box:document.getElementById("panelContent"),
 			side: "xy",
 			inset:[true,true],
-			scrollMargin:[true,true],
+			scrollMargin:[false,false],
 			stretch:[true,true],
 			divideCorner:[true,true],
 			wheelOrient:"vertical",
@@ -102,8 +102,6 @@ function validation(){
 		} else {
 			windowWheelBlock.call(this,1);
 			}
-			
-	
 	
 	if(this.side===s[2] && !isFit(this,0) && !isFit(this,1)){
 		createWheelArea.call(this,1);
@@ -137,10 +135,8 @@ function validation(){
 	for(x in b){
 		if(!!this.elements[x][0]){
 			setDimentions.call(this,this.contentScroll[x],x,1);
-			console.log(x);
 		}
 	}
-	
 	setWheelEvent.call(this);
 }
 
@@ -328,7 +324,8 @@ handyScroller.prototype.rP = function(side,object,property){
 	var changedAr = this.elements[side].slice();
 	var props = [["top","height","width"],["left","width","height"]];
 	changedAr.unshift(this.mainBox,this.contentBox,this.wheelBox);
-	return changedAr[object].getBoundingClientRect()[props[side][property]];
+	var obj = typeof object === "number" ? changedAr[object]:object;
+	return obj.getBoundingClientRect()[props[side][property]];
 };
 
 function setStyles(object,props,vals){
@@ -413,8 +410,6 @@ function hashDetector(){
 }
 
 function alignBoxes(boxList,hashElem){
-	var d = [["height","top"],["width","left"]];
-	
 	for(var rr=0;rr<2;rr++){
 		for(var ss=0;ss<boxList.length;ss++){
 			if(boxList[ss].elements[rr][0]===null) continue;
@@ -423,14 +418,15 @@ function alignBoxes(boxList,hashElem){
 	}
 	
 	function cM(side,object){
-		return boxList[object].scrollMargin[1-side] ? boxList[object].elements[1-side][0].getBoundingClientRect()[d[side][0]]:0;
-	}
-	var fB = boxList[0].mainBox.getBoundingClientRect();
-	var h = hashElem.getBoundingClientRect();
+		var obj = boxList[object].elements[1-side][0]; 
+		return boxList[object].scrollMargin[1-side] ? fB.rP(side,obj,1):0;
+	}	
 	
+	var fB = boxList[0];
 	boxList.reverse();
 	for(var xx=0;xx<2;xx++){
-		var destT = fB[d[xx][1]]+((fB[d[xx][0]]-cM(xx,0))*(boxList[0].scrollAlign[xx*2]/100)) + (h[d[xx][0]]*(boxList[0].scrollAlign[xx*2+1]/100));
+		var destT = fB.rP(xx,0,0)+((fB.rP(xx,0,1)-cM(xx,0))*(boxList[0].scrollAlign[xx*2]/100)) + (fB.rP(xx,hashElem,1)*(boxList[0].scrollAlign[xx*2+1]/100));
+		console.log(destT);
 		var vOT = hashElem;
 		var vOB = hashElem;
 		
@@ -438,26 +434,91 @@ function alignBoxes(boxList,hashElem){
 			if(boxList[x].elements[xx][0]===null) continue;
 			
 			var move;
-			var cB = boxList[x].mainBox.getBoundingClientRect();
-			var cT = boxList[x].contentBox.getBoundingClientRect()[d[xx][1]];
-			var vT = vOT.getBoundingClientRect()[d[xx][1]];
-			var vcB = vOB.getBoundingClientRect();
-			var vB = vcB[d[xx][1]] + vcB[d[xx][0]];
-			if((x===boxList.length-1)||(destT>=cB[d[xx][1]]&&destT+h[d[xx][0]]<=(cB[d[xx][1]]+cB[d[xx][0]]))){
-				move = (cB[d[xx][1]]-cT) + (vT - destT);
+			var cB = boxList[x]; 
+			var vT = fB.rP(xx,vOT,0);
+			var vB = fB.rP(xx,vOB,0) + fB.rP(xx,vOB,1);
+			
+			if((x===boxList.length-1)||(destT>=cB.rP(xx,0,0)&&destT+fB.rP(xx,hashElem,1)<=(cB.rP(xx,0,0)+cB.rP(xx,0,1)))){
+				move = (cB.rP(xx,0,0)-cB.rP(xx,1,0)) + (vT - destT);
 				setDimentions.call(boxList[x],move,xx,1);
 				} else {
-					var tV = Math.abs(cB[d[xx][1]]-destT);
-					var bV = Math.abs((cB[d[xx][1]]+cB[d[xx][0]]-cM(xx,x))-destT+h[d[xx][0]]);
-					move = tV<=bV ? vT-cT:(vB-cT)-cB[d[xx][0]]+cM(xx,x);
-					var scr = tV<=bV ? cB[d[xx][1]]-vT:(cB[d[xx][1]]+cB[d[xx][0]])-vB-cM(xx,x);
-					vOT = (vT+scr)<cB[d[xx][1]] ? boxList[x].mainBox:vOT;
-					vOB = (vB+scr)>(cB[d[xx][1]]+cB[d[xx][0]]) ? boxList[x].mainBox:vOB;
+					var tV = Math.abs(cB.rP(xx,0,0)-destT);
+					var bV = Math.abs((cB.rP(xx,0,0)+cB.rP(xx,0,1)-cM(xx,x))-destT+fB.rP(xx,hashElem,1));
+					move = tV<=bV ? vT-cB.rP(xx,1,0):(vB-cB.rP(xx,1,0))-cB.rP(xx,0,1)+cM(xx,x);
+					var scr = tV<=bV ? cB.rP(xx,0,0)-vT:(cB.rP(xx,0,0)+cB.rP(xx,0,1))-vB-cM(xx,x);
+					vOT = (vT+scr)<cB.rP(xx,0,0) ? boxList[x].mainBox:vOT;
+					vOB = (vB+scr)>(cB.rP(xx,0,0)+cB.rP(xx,0,1)) ? boxList[x].mainBox:vOB;
 					setDimentions.call(boxList[x],move,xx,1);
 					}
 		}
 	}
+	
+
+	
 }
+
+
+
+
+//function alignBoxes(boxList,hashElem){
+//	var d = [["height","top"],["width","left"]];
+//	
+//	for(var rr=0;rr<2;rr++){
+//		for(var ss=0;ss<boxList.length;ss++){
+//			if(boxList[ss].elements[rr][0]===null) continue;
+//			setDimentions.call(boxList[ss],0,rr,1);
+//		}
+//	}
+//	
+//	function cM(side,object){
+//		return boxList[object].scrollMargin[1-side] ? boxList[object].elements[1-side][0].getBoundingClientRect()[d[side][0]]:0;
+//	}
+//	var fB = boxList[0].mainBox.getBoundingClientRect();
+//	var h = hashElem.getBoundingClientRect();
+//	
+//	boxList.reverse();
+//	for(var xx=0;xx<2;xx++){
+//		var destT = fB[d[xx][1]]+((fB[d[xx][0]]-cM(xx,0))*(boxList[0].scrollAlign[xx*2]/100)) + (h[d[xx][0]]*(boxList[0].scrollAlign[xx*2+1]/100));
+//		var vOT = hashElem;
+//		var vOB = hashElem;
+//		
+//		for(var x=0;x<boxList.length;x++){
+//			if(boxList[x].elements[xx][0]===null) continue;
+//			
+//			var move;
+//			var cB = boxList[x].mainBox.getBoundingClientRect();
+//			var cT = boxList[x].contentBox.getBoundingClientRect()[d[xx][1]];
+//			var vT = vOT.getBoundingClientRect()[d[xx][1]];
+//			var vcB = vOB.getBoundingClientRect();
+//			var vB = vcB[d[xx][1]] + vcB[d[xx][0]];
+//			if((x===boxList.length-1)||(destT>=cB[d[xx][1]]&&destT+h[d[xx][0]]<=(cB[d[xx][1]]+cB[d[xx][0]]))){
+//				move = (cB[d[xx][1]]-cT) + (vT - destT);
+//				setDimentions.call(boxList[x],move,xx,1);
+//				} else {
+//					var tV = Math.abs(cB[d[xx][1]]-destT);
+//					var bV = Math.abs((cB[d[xx][1]]+cB[d[xx][0]]-cM(xx,x))-destT+h[d[xx][0]]);
+//					move = tV<=bV ? vT-cT:(vB-cT)-cB[d[xx][0]]+cM(xx,x);
+//					var scr = tV<=bV ? cB[d[xx][1]]-vT:(cB[d[xx][1]]+cB[d[xx][0]])-vB-cM(xx,x);
+//					vOT = (vT+scr)<cB[d[xx][1]] ? boxList[x].mainBox:vOT;
+//					vOB = (vB+scr)>(cB[d[xx][1]]+cB[d[xx][0]]) ? boxList[x].mainBox:vOB;
+//					setDimentions.call(boxList[x],move,xx,1);
+//					}
+//		}
+//	}
+//}
+//
+//
+//
+//
+
+
+
+
+
+
+
+
+
 
 function positionContent(){
 	
