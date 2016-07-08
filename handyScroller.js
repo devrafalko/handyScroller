@@ -63,12 +63,14 @@ function handyScroller(o){
 					  null,   //Padding		this.elements[1][1]
 					  null]]; //Button		this.elements[1][2]
 	this.wheelXY = [false,false];
+	this.currentDims = [];
 	this.constructor.prototype.objectList.push(this);
 
 	createBoxes.call(this);
 	validation.call(this);
 	blockScroll.call(this);
 	hashDetector.call(this);
+	autoRefresh.call(this);
 }
 
 handyScroller.prototype.objectList = [];
@@ -76,11 +78,6 @@ handyScroller.prototype.currentId = null;
 handyScroller.prototype.hashEvents = false;
 handyScroller.prototype.buttonClick = null;
 handyScroller.prototype.stylesXY = [["top","height","right","Y","width","scrollTop"],["left","width","bottom","X","height","scrollLeft"]];
-
-window.onresize = function(){
-	var obj = handyScroller.prototype.objectList[0];
-	validation.call(obj);
-};
 
 function isFit(obj,xy){
 	var margin = obj.scrollMargin[xy] && obj.elements[1-xy][0] ? obj.rP(1-xy,3,2):0;
@@ -452,75 +449,59 @@ function alignBoxes(boxList,hashElem){
 					}
 		}
 	}
-	
-
-	
 }
 
+function autoRefresh(){
+	var bRM = this.refreshMe.bind(this);
+	this.refreshMe = bRM;
+	window.addEventListener("resize",bRM);
+	if(window.MutationObserver){
+		var observer = new MutationObserver(function(mutations) {
+			mutations.forEach(function(mRec) {
+				bRM();
+			});
+		});
+		var target = this.contentBox;
+		var target2 = this.mainBox;
+		observer.observe(target, {childList:true, attributes:true, characterData:true, subtree:true});
+		observer.observe(target2, {attributes:true, characterData:true});
+		} else if(window.MutationEvent) {
+			var eA = ["DOMAttrModified","DOMAttributeNameChanged","DOMCharacterDataModified","DOMElementNameChanged","DOMNodeInserted","DOMNodeRemoved"];
+					//"DOMSubtreeModified","DOMNodeInsertedIntoDocument","DOMNodeRemovedFromDocument","onpropertychange"
+			for(var i in eA){
+				this.mainBox.addEventListener(eA[i],bRM);
+				}
+			};
+}
 
-
-
-//function alignBoxes(boxList,hashElem){
-//	var d = [["height","top"],["width","left"]];
-//	
-//	for(var rr=0;rr<2;rr++){
-//		for(var ss=0;ss<boxList.length;ss++){
-//			if(boxList[ss].elements[rr][0]===null) continue;
-//			setDimentions.call(boxList[ss],0,rr,1);
-//		}
-//	}
-//	
-//	function cM(side,object){
-//		return boxList[object].scrollMargin[1-side] ? boxList[object].elements[1-side][0].getBoundingClientRect()[d[side][0]]:0;
-//	}
-//	var fB = boxList[0].mainBox.getBoundingClientRect();
-//	var h = hashElem.getBoundingClientRect();
-//	
-//	boxList.reverse();
-//	for(var xx=0;xx<2;xx++){
-//		var destT = fB[d[xx][1]]+((fB[d[xx][0]]-cM(xx,0))*(boxList[0].scrollAlign[xx*2]/100)) + (h[d[xx][0]]*(boxList[0].scrollAlign[xx*2+1]/100));
-//		var vOT = hashElem;
-//		var vOB = hashElem;
-//		
-//		for(var x=0;x<boxList.length;x++){
-//			if(boxList[x].elements[xx][0]===null) continue;
-//			
-//			var move;
-//			var cB = boxList[x].mainBox.getBoundingClientRect();
-//			var cT = boxList[x].contentBox.getBoundingClientRect()[d[xx][1]];
-//			var vT = vOT.getBoundingClientRect()[d[xx][1]];
-//			var vcB = vOB.getBoundingClientRect();
-//			var vB = vcB[d[xx][1]] + vcB[d[xx][0]];
-//			if((x===boxList.length-1)||(destT>=cB[d[xx][1]]&&destT+h[d[xx][0]]<=(cB[d[xx][1]]+cB[d[xx][0]]))){
-//				move = (cB[d[xx][1]]-cT) + (vT - destT);
-//				setDimentions.call(boxList[x],move,xx,1);
-//				} else {
-//					var tV = Math.abs(cB[d[xx][1]]-destT);
-//					var bV = Math.abs((cB[d[xx][1]]+cB[d[xx][0]]-cM(xx,x))-destT+h[d[xx][0]]);
-//					move = tV<=bV ? vT-cT:(vB-cT)-cB[d[xx][0]]+cM(xx,x);
-//					var scr = tV<=bV ? cB[d[xx][1]]-vT:(cB[d[xx][1]]+cB[d[xx][0]])-vB-cM(xx,x);
-//					vOT = (vT+scr)<cB[d[xx][1]] ? boxList[x].mainBox:vOT;
-//					vOB = (vB+scr)>(cB[d[xx][1]]+cB[d[xx][0]]) ? boxList[x].mainBox:vOB;
-//					setDimentions.call(boxList[x],move,xx,1);
-//					}
-//		}
-//	}
-//}
-//
-//
-//
-//
-
-
-
-
-
-
-
-
+handyScroller.prototype.refreshMe = function(){
+	var m = this.mainBox.getBoundingClientRect();
+	var c = this.contentBox.getBoundingClientRect();
+	var n = [m.height,m.width,c.height,c.width];
+	var p = this.currentDims;
+	if(n[0]!==p[0]||n[1]!==p[1]||n[2]!==p[2]||n[3]!==p[3]){
+		validation.call(this);
+		this.currentDims = n.slice();
+	}
+};
 
 
 function positionContent(){
 	
 }
 
+
+
+function move(e,state){
+	var obj = document.getElementById("ruchomyDiv");
+	var style = !state ? "width":"height";
+	obj.style[style] = e.target.value + "px";
+}
+
+function addBox(side){
+	var s = side===0 ? "toRight":side===1 ? "toBottom":s;
+	var container = document.getElementById(s);
+	var newElem = document.createElement("DIV");
+	newElem.className = s;
+	container.appendChild(newElem);
+}
