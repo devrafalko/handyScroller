@@ -3,39 +3,17 @@ window.onload = function(e){
 			box:document.getElementById("panelContent"),
 			side: "xy",
 			inset:[true,true],
-			scrollMargin:[false,false],
+			scrollMargin:[true,true],
 			stretch:[true,true],
 			divideCorner:[true,true],
 			wheelOrient:"vertical",
 			wheelX:10,
-			scrollStep:[10,10],
-			scrollAlign:[0,0,0,0]
-	});
-
-	var newScroll2 = new handyScroller({
-			box:document.getElementById("innerContent"),
-			side: "xy",
-			stretch:[true,true],
-			inset:[true,true],
-			divideCorner:[true,true],
-			scrollMargin:[true,true],
-			wheelOrient:"horizontal",
-			wheelX:30,
-			scrollStep:[1,1],
-			scrollAlign:[0,0,0,0]
-	});
-
-	var newScroll3 = new handyScroller({
-			box:document.getElementById("newInner"),
-			side: "xy",
-			stretch:[false,false],
-			inset:[true,true],
-			divideCorner:[true,true],
-			scrollMargin:[true,true],
-			wheelOrient:"vertical",
-			wheelX:30,
-			scrollStep:[1,1],
-			scrollAlign:[0,0,0,0]
+			scrollStep:[5,5],
+			scrollAlign:[100,-100,0,0],
+			wheelToID:["repeat",true],
+			scrollToID:[true,true],
+			edgesID:[true,false],
+			wheelBlockTime:150	//set 150 as default
 	});
 };
 
@@ -51,6 +29,10 @@ function handyScroller(o){
 	this.mainBox = o.box;
 	this.inset = o.inset;
 	this.scrollAlign = o.scrollAlign;
+	this.wheelToID = o.wheelToID;
+	this.scrollToID = o.scrollToID;
+	this.edgesID = o.edgesID;
+	this.wheelBlockTime = o.wheelBlockTime;
 	this.contentBox = null;
 	this.wheelBox = null;
 	this.wheelEvent = false;
@@ -64,10 +46,17 @@ function handyScroller(o){
 					  null]]; //Button		this.elements[1][2]
 	this.wheelXY = [false,false];
 	this.currentDims = [];
+	this.refreshMe = null;
+	this.handyIDs = [];
+	this.handyIDpos =[];
+	this.actID = null;
+	this.blockWheel = false;
 	this.constructor.prototype.objectList.push(this);
 
 	createBoxes.call(this);
+	bindPrototyped.call(this);
 	validation.call(this);
+	findMyIds.call(this);
 	blockScroll.call(this);
 	hashDetector.call(this);
 	autoRefresh.call(this);
@@ -75,9 +64,11 @@ function handyScroller(o){
 
 handyScroller.prototype.objectList = [];
 handyScroller.prototype.currentId = null;
+handyScroller.prototype.isIdSet = false;
 handyScroller.prototype.hashEvents = false;
 handyScroller.prototype.buttonClick = null;
 handyScroller.prototype.stylesXY = [["top","height","right","Y","width","scrollTop"],["left","width","bottom","X","height","scrollLeft"]];
+handyScroller.prototype.currentScrollAlign = null;
 
 function isFit(obj,xy){
 	var margin = obj.scrollMargin[xy] && obj.elements[1-xy][0] ? obj.rP(1-xy,3,2):0;
@@ -88,7 +79,6 @@ function validation(){
 	var x,b=[0,1];
 	var s = ["y","x","xy"];
 	refreshScrollMargin.call(this);
-
 	for(x in b){
 		this.scrollMargin[x] = !this.inset[x] ? false:this.scrollMargin[x];
 		createScrollbars.call(this,x,1);
@@ -128,12 +118,13 @@ function validation(){
 			}
 		}
 	}
-	
+
 	for(x in b){
 		if(!!this.elements[x][0]){
 			setDimentions.call(this,this.contentScroll[x],x,1);
 		}
 	}
+
 	setWheelEvent.call(this);
 }
 
@@ -175,8 +166,11 @@ function createWheelArea(state){
 
 function windowWheelBlock(state){
 	var binded = mouseOverMe.bind(this);
-	this.mainBox.addEventListener("mouseover",binded,true);
+	var bindedI = firstIdInit.bind(this);
+	this.mainBox.addEventListener("mouseenter",binded,true);
 	this.mainBox.addEventListener("mouseout", mouseOutMe,true);
+	this.mainBox.addEventListener("wheel", bindedI,true);
+	this.mainBox.addEventListener("mousemove", bindedI,true);
 	
 	function mouseOverMe(){
 		if(state){
@@ -184,10 +178,20 @@ function windowWheelBlock(state){
 			window.onmousewheel=function(){return false;};
 			this.constructor.prototype.currentId = this.scrollId;
 			}
-		}	
+		}
+		
 	function mouseOutMe(){
 		window.onwheel=null;
 		window.onmousewheel=null;		
+	}
+	
+	function firstIdInit(){
+		this.mainBox.removeEventListener("wheel",bindedI,true);
+		this.mainBox.removeEventListener("mousemove",bindedI,true);
+		var pr = this.constructor.prototype;
+		if(pr.isIdSet) return;
+		pr.currentId = this.scrollId;
+		pr.isIdSet = true;
 	}
 }
 
@@ -225,10 +229,11 @@ function createScrollbars(z,state){
 			
 			function clickMe(obj){
 				var s = Number(obj.parentNode.getAttribute("data-side"));
+				var passSt = setIDsDims.call(this,s,0) ? true:false;
 				bindedR = releaseMe.bind(this);
-				bindedS = scrollMove.bind(this,s);
+				bindedS = scrollMove.bind(this,s,passSt);
 				prepareToMove.call(this,s);
-				scrollMove.call(this,s);
+				scrollMove.call(this,s,passSt);
 				prepareToMove.call(this,s);
 				window.addEventListener("mouseup",bindedR);
 				window.addEventListener("mousemove",bindedS);
@@ -243,10 +248,122 @@ function createScrollbars(z,state){
 				setStyles(this.contentBox,["webkitTouchCallout","webkitUserSelect","khtmlUserSelect","mozUserSelect","msUserSelect","oUserSelect","UserSelect"],["all","all","all","all","all","all","all"]);
 			}
 			
-			function scrollMove(s){
+			function scrollMove(s,st){
 				var pos = getMouse.call(this,s)+this.buttonClick;
-				setDimentions.call(this,pos,s,0);
+				setDimentions.call(this,pos,s,0,st);
 			}	
+}
+
+function findMyIds(){
+	var s = this.side;
+	var sID = this.scrollToID,wID = this.wheelToID;
+		if((s==="xy"&&!sID[0]&&!sID[1]&&!wID[0]&&!wID[1])||(s==="y"&&!sID[0]&&!wID[0])||(s==="x"&&!sID[1]&&!wID[1])){
+			this.handyIDs = [];
+			return;
+		}
+	var hBs = this.contentBox.querySelectorAll(".handyContainer");
+	var iE = this.contentBox.querySelectorAll("[data-handyID]");
+	var aE = [];
+		if(!iE.length) {
+			this.handyIDs = [];
+			return;
+		}
+	for(var i=0; i!==iE.length; aE.push(iE[i++]));
+	if(hBs.length){
+		for(var ii=0;ii<hBs.length;ii++){
+			for(var iii=0;iii<aE.length;iii++){
+				if(hBs[ii].contains(aE[iii])&&aE[iii]!==hBs[ii]){
+					aE.splice(iii,1);
+					iii--;
+				}
+			}
+		}
+	}
+
+	for(var i=0;i<aE.length;i++){
+		if(checkStyleVal(aE[i],"display") === "none"){
+			aE.splice(i,1);
+			i--;
+		}
+	}
+
+		if(!aE.length) {
+			this.handyIDs = [];
+			return;
+		}
+	
+	var tb = [],uTb = [];
+	for(var i=0;i<aE.length;i++){
+		var args = aE[i].getAttribute("data-handyID").split(",");
+		for(var ii=0;ii<5;ii++){
+			args[ii] = parseFloat(args[ii]);
+		}
+		var nOb = {obj:aE[i],coords:args,tab:args.splice(4,1)[0]};
+		
+		if(isNaN(nOb.tab)){
+			uTb.push(nOb);
+			} else{
+				tb.push(nOb);
+				}
+	}
+	
+	tb.sort(function(a,b){
+		return a.tab-b.tab;
+	});
+	this.handyIDs = tb.concat(uTb).slice();
+}
+
+function setIDsDims(x,evObj){
+	if((this.edgesID[x] && !this.handyIDs.length)||(!this.edgesID[x] && this.handyIDs.length<2)) return false;
+	if(![this.scrollToID,this.wheelToID][evObj][x]) return false;
+	
+	var res = [];
+	for(var i=0;i<this.handyIDs.length;i++){
+		var mV = (this.rP(x,0,1)*(this.handyIDs[i].coords[x*2]/100)) + (this.rP(x,this.handyIDs[i].obj,1)*(this.handyIDs[i].coords[x*2+1]/100));
+		res.push(this.rP(x,this.handyIDs[i].obj,0)-this.rP(x,1,0)-mV);
+	}
+	
+	if(this.edgesID[x]){
+		res.unshift(0);
+		res.push((this.rP(x,1,1)+retMarg(this,x))-this.rP(x,0,1));
+	}
+	
+	this.handyIDpos = res.slice();
+	var unQ = [];
+	for(var i=0;i<this.handyIDpos.length;i++){
+		if(!unQ.some(function(c){
+			return c===this.valueOf();
+			},this.handyIDpos[i])){
+				unQ.push(this.handyIDpos[i]);
+		}
+	}
+	if((!this.edgesID[x]&&unQ.length<2)||(this.edgesID[x]&&unQ.length<3)){ 
+		return false;
+		} else {
+			return true;
+			}
+}
+
+function findNearestId(s,wS){
+	var c = false;
+	for(var i=0;i<this.handyIDpos.length;i++){
+		var cA = this.contentScroll[s],cB = this.handyIDpos[i];
+		if((wS===1&&cB<cA)||(wS===-1&&cB>cA)) {
+			var f = c===false ? Number.POSITIVE_INFINITY:Math.abs(cA-this.handyIDpos[c]);
+			if(Math.abs(cA-cB)<f){
+				c = i;
+			}					
+		}
+	}
+	if(c===false){
+		if(this.wheelToID[s]==="repeat"){
+			c = wS === 1 ? this.handyIDpos.length-1:0;
+			} else {
+				return;
+				}
+			}
+	this.actID = c;
+	setDimentions.call(this,this.handyIDpos[c],s,1,this.scrollToID[s]);			
 }
 
 function divideMe(s,b,c){
@@ -263,23 +380,34 @@ function divideMe(s,b,c){
 
 function setWheelEvent(){
 	var e = this.elements;
-	var newBind = wheelScroll.bind(this);
+	var bWheelScroll = wheelScroll.bind(this);
 	if(this.wheelEvent===false){
-		this.mainBox.addEventListener("wheel", newBind);
+		this.mainBox.addEventListener("wheel", bWheelScroll);
 		this.wheelEvent = true;
 		}
 	
 	function wheelScroll(){
+		if(this.blockWheel) return;
 		var s = e[0][0]&&e[1][0]? 2:e[0][0]?0:e[1][0]?1:-1;
 		if(this.scrollId!==this.constructor.prototype.currentId||s===-1){
 			return;
 		}
-		var or = this.wheelOrient==="vertical" ? 1:0;
-		var c = s!==2?s:((getMouse.call(this,or)/this.rP(or,0,1))*100)<(100-this.wheelX) ? 0:1;
-		var wheel = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
-		var move = ((this.rP(c,4,1)-this.rP(c,5,1))*(this.scrollStep[c]/100)*wheel);
-		var pos = (this.rP(c,5,0)-this.rP(c,4,0)) - move;
-		setDimentions.call(this,pos,c,0);
+		var wO = this.wheelOrient==="vertical" ? 1:0;
+		var nS = s!==2?s:((getMouse.call(this,wO)/this.rP(wO,0,1))*100)<(100-this.wheelX) ? 0:1;
+		var wH = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
+		if(setIDsDims.call(this,nS,1)){
+			findNearestId.call(this,nS,wH);
+			this.blockWheel = true;
+				var sT = this.wheelBlockTime;
+				window.setTimeout(function(){
+					arguments[0].blockWheel = false;
+				},sT,this);
+			} else {
+				this.actID = null;
+				var mV = ((this.rP(nS,4,1)-this.rP(nS,5,1))*(this.scrollStep[nS]/100)*wH);
+				var pS = (this.rP(nS,5,0)-this.rP(nS,4,0)) - mV;
+				setDimentions.call(this,pS,nS,0);
+				}
 	}
 }
 
@@ -292,53 +420,62 @@ function refreshStretch(s){
 }
 
 function getMouse(s){
-	var mouseXY = s===0?"clientY":"clientX";
-	var mouse = event[mouseXY]<this.rP(s,3,0) ? 0:event[mouseXY]>this.rP(s,3,0)+this.rP(s,3,1) ? this.rP(s,3,1):event[mouseXY]-this.rP(s,3,0);
-	return mouse;		
+	var mXY = s===0?"clientY":"clientX";
+	var mouse = event[mXY]<this.rP(s,3,0) ? 0:event[mXY]>this.rP(s,3,0)+this.rP(s,3,1) ? this.rP(s,3,1):event[mXY]-this.rP(s,3,0);
+	return mouse;	
 }
 
 function prepareToMove(s){
-	var isOnside = !this.stretch[s] ? false:((getMouse.call(this,s)>=this.rP(s,5,0)-this.rP(s,4,0)) && (getMouse.call(this,s)<this.rP(s,5,0)+this.rP(s,5,1)-this.rP(s,4,0))) ? true:false;
-	this.buttonClick = isOnside ? -(getMouse.call(this,s)-(this.rP(s,5,0)-this.rP(s,4,0))):-(this.rP(s,5,1)/2);
+	var onSide = !this.stretch[s] ? false:((getMouse.call(this,s)>=this.rP(s,5,0)-this.rP(s,4,0)) && (getMouse.call(this,s)<this.rP(s,5,0)+this.rP(s,5,1)-this.rP(s,4,0))) ? true:false;
+	this.buttonClick = onSide ? -(getMouse.call(this,s)-(this.rP(s,5,0)-this.rP(s,4,0))):-(this.rP(s,5,1)/2);
 };
 
-function setDimentions(pos,s,d){
-	var o = [retMarg(this,s),this.elements[s][2],this.contentBox];
-	var l = [[5,4,0,4,o[1],1,1,o[2]],[0,1,o[0],0,o[2],-1,5,o[1]]];
-	var newPx = pos<0 ? 0:(pos+this.rP(s,l[d][0],1))>this.rP(s,l[d][1],1)+l[d][2] ? this.rP(s,l[d][1],1)-this.rP(s,l[d][0],1)+l[d][2]:pos;
-	var newProc = (newPx/(this.rP(s,l[d][3],1)))*100;
-	var setUnit = !d ? [newProc,"%"]:[newPx,"px"];
-	setStyles(l[d][4],[[this.stylesXY[s][0]]],[(l[d][5]*setUnit[0]) + setUnit[1]]);
-	
-	var total = ((this.rP(s,l[d][0],0)-this.rP(s,l[d][1],0))/(this.rP(s,l[d][1],1)+l[d][2]-this.rP(s,l[d][0],1)))*100;
-	var proc = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/100);
-	setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[proc + "px"]);
-	
-	this.contentScroll[s] = d ? newPx:-proc;
+function setDimentions(pos,s,d,sep){
+		var nRet;
+		var o = [retMarg(this,s),this.elements[s][2],this.contentBox];
+		var l = [[5,4,0,4,o[1],1,1,o[2]],[0,1,o[0],0,o[2],-1,5,o[1]]];
+		var nPx = pos<0 ? 0:(pos+this.rP(s,l[d][0],1))>this.rP(s,l[d][1],1)+l[d][2] ? this.rP(s,l[d][1],1)-this.rP(s,l[d][0],1)+l[d][2]:pos;
+		var nPr = (nPx/(this.rP(s,l[d][3],1)))*100;
+		var sU = !d ? [nPr,"%"]:[nPx,"px"];
+		setStyles(l[d][4],[[this.stylesXY[s][0]]],[(l[d][5]*sU[0]) + sU[1]]);
+		if(sep){
+			if(!d){
+				var sPr = (nPx/(this.rP(s,l[d][3],1)-this.rP(s,l[0][0],1)))*100;
+				var idS = 100/(this.handyIDpos.length-1);
+				nRet = -this.handyIDpos[Math.floor((sPr+(idS/2))/idS)];				
+				} else {
+					nRet = (((this.rP(s,4,1) - this.rP(s,5,1))/(this.handyIDpos.length-1))*this.actID);
+					}
+			} else {
+				var total = ((this.rP(s,l[d][0],0)-this.rP(s,l[d][1],0))/(this.rP(s,l[d][1],1)+l[d][2]-this.rP(s,l[d][0],1)))*100;
+				nRet = (((this.rP(s,l[1-d][3],1)-(this.rP(s,l[d][6],1)+l[1-d][2]))*total)/100);
+				}
+		this.contentScroll[s] = d ? nPx:-nRet;
+		setStyles(l[1-d][4],[[this.stylesXY[s][0]]],[nRet + "px"]);
 }
 
-handyScroller.prototype.rP = function(side,object,property){
-	var changedAr = this.elements[side].slice();
-	var props = [["top","height","width"],["left","width","height"]];
-	changedAr.unshift(this.mainBox,this.contentBox,this.wheelBox);
-	var obj = typeof object === "number" ? changedAr[object]:object;
-	return obj.getBoundingClientRect()[props[side][property]];
+handyScroller.prototype.rP = function(s,o,p){
+	var nO = this.elements[s].slice();
+	var nP = [["top","height","width"],["left","width","height"]];
+	nO.unshift(this.mainBox,this.contentBox,this.wheelBox);
+	var obj = typeof o === "number" ? nO[o]:o;
+	return obj.getBoundingClientRect()[nP[s][p]];
 };
 
-function setStyles(object,props,vals){
-	for(var i=0;i<props.length;i++){
-		object.style[props[i]] = vals[i];
+function setStyles(o,p,v){
+	for(var i=0;i<p.length;i++){
+		o.style[p[i]] = v[i];
 	}
 }
 
-function retMarg(obj,s){
-	return obj.scrollMargin[1-s] ? obj.rP(1-s,3,2):0;
+function retMarg(o,s){
+	return o.scrollMargin[1-s] ? o.rP(1-s,3,2):0;
 }
 
 function blockScroll(){
 	var c = this.mainBox.children[0];
-	var scrollB = blockMe.bind(this);
-	c.addEventListener("scroll",scrollB);
+	var bBlockMe = blockMe.bind(this);
+	c.addEventListener("scroll",bBlockMe);
 	function blockMe(){
 		if(c.scrollLeft!==0){
 		c.scrollLeft = 0;
@@ -355,8 +492,8 @@ function hashDetector(){
 		window.addEventListener("click",detectClickHash);
 	}
 
-	var hash = document.getElementById(location.hash.slice(1));
-	if(hash) getHashObjects(document.body,hash);
+	var cH = document.getElementById(location.hash.slice(1));
+	if(cH) getHashObjects(document.body,cH);
 	
 	function detectClickHash(e){
 		if(e.target.nodeName !== "A") return;
@@ -365,116 +502,143 @@ function hashDetector(){
 		var hashElem = document.getElementById(e.target.getAttribute("href").slice(1));
 		getHashObjects(e.target,hashElem);
 	}
-	
-	function getHashObjects(target,hash){
-		var x = [target,hash];
-		var nL = [[],[]];
-		for(var y=1;y>=0;y--){
-			while(x[y]!==null){
-				if(x[y].getAttribute("class")==="handyContainer"){
-					nL[y].push(x[y]);
-				}
-				x[y] = x[y].parentElement;
-			}
-			if(nL[1].length===0) return;
-			nL[y].reverse();
-			nL[y].forEach(getHandyObject);
-		}
-			function getHandyObject(curr,ind,arr){
-				var objL = handyScroller.prototype.objectList;
-				for(var x=0;x<objL.length;x++){
-					if(curr.id===objL[x].mainBox.id){
-						arr[ind] = objL[x];
-						}
-					}
-				}
-		var nnL;
-		if(nL[0][0] === nL[1][0]){
-			var spl=0;
-			for(var bb=1;bb<nL[1].length;bb++){
-				if(nL[1][bb]===nL[0][bb]){
-					spl = bb;
-					} else {
-						break;
-						}
-			}
-			nnL = nL[1].slice(spl);
-			} else {
-				nnL = nL[1].slice();
-				}
-		alignBoxes(nnL,hash);
-	}
 }
 
-function alignBoxes(boxList,hashElem){
-	for(var rr=0;rr<2;rr++){
-		for(var ss=0;ss<boxList.length;ss++){
-			if(boxList[ss].elements[rr][0]===null) continue;
-			setDimentions.call(boxList[ss],0,rr,1);
+function getHashObjects(tG,hS){
+	var nN, x = [tG,hS], nL = [[],[]];
+	for(var i=1;i>=0;i--){
+		while(x[i]!==null){
+			if(x[i].getAttribute("class")==="handyContainer"){
+				nL[i].push(x[i]);
+			}
+			x[i] = x[i].parentElement;
+		}
+		if(nL[1].length===0) return;
+		nL[i].reverse();
+		nL[i].forEach(getHandyObject);
+	}
+		function getHandyObject(cR,iN,aR){
+			var oL = handyScroller.prototype.objectList;
+			for(var i=0;i<oL.length;i++){
+				if(cR.id===oL[i].mainBox.id){
+					aR[iN] = oL[i];
+					}
+				}
+			}
+	if(nL[0][0] === nL[1][0]){
+		var sP=0;
+		for(var i=1;i<nL[1].length;i++){
+			if(nL[1][i]===nL[0][i]){
+				sP = i;
+				} else {
+					break;
+					}
+		}
+		nN = nL[1].slice(sP);
+		} else {
+			nN = nL[1].slice();
+			}
+	alignBoxes(nN,hS);
+}
+
+function alignBoxes(bL,hE){
+	
+	for(var i=0;i<2;i++){
+		for(var ss=0;ss<bL.length;ss++){
+			if(bL[ss].elements[i][0]===null) continue;
+			setDimentions.call(bL[ss],0,i,1);
 		}
 	}
 	
-	function cM(side,object){
-		var obj = boxList[object].elements[1-side][0]; 
-		return boxList[object].scrollMargin[1-side] ? fB.rP(side,obj,1):0;
-	}	
-	
-	var fB = boxList[0];
-	boxList.reverse();
-	for(var xx=0;xx<2;xx++){
-		var destT = fB.rP(xx,0,0)+((fB.rP(xx,0,1)-cM(xx,0))*(boxList[0].scrollAlign[xx*2]/100)) + (fB.rP(xx,hashElem,1)*(boxList[0].scrollAlign[xx*2+1]/100));
-		console.log(destT);
-		var vOT = hashElem;
-		var vOB = hashElem;
-		
-		for(var x=0;x<boxList.length;x++){
-			if(boxList[x].elements[xx][0]===null) continue;
+	var fB = bL[0];
+	bL.reverse();
+	var gA = handyScroller.prototype.currentScrollAlign === null ? bL[0].scrollAlign.slice():handyScroller.prototype.currentScrollAlign.slice();
+	handyScroller.prototype.currentScrollAlign = null;
+
+	for(var i=0;i<2;i++){
+		var vOT = hE, vOB = hE,	destT = fB.rP(i,0,0)+((fB.rP(i,0,1)-cM(i,0))*(gA[i*2]/100)) + (fB.rP(i,hE,1)*(gA[i*2+1]/100));
+		for(var ii=0;ii<bL.length;ii++){
+			if(bL[ii].elements[i][0]===null) continue;
+			var mV,	cB = bL[ii], vT = fB.rP(i,vOT,0), vB = fB.rP(i,vOB,0) + fB.rP(i,vOB,1);
 			
-			var move;
-			var cB = boxList[x]; 
-			var vT = fB.rP(xx,vOT,0);
-			var vB = fB.rP(xx,vOB,0) + fB.rP(xx,vOB,1);
-			
-			if((x===boxList.length-1)||(destT>=cB.rP(xx,0,0)&&destT+fB.rP(xx,hashElem,1)<=(cB.rP(xx,0,0)+cB.rP(xx,0,1)))){
-				move = (cB.rP(xx,0,0)-cB.rP(xx,1,0)) + (vT - destT);
-				setDimentions.call(boxList[x],move,xx,1);
+			if((ii===bL.length-1)||(destT>=cB.rP(i,0,0)&&destT+fB.rP(i,hE,1)<=(cB.rP(i,0,0)+cB.rP(i,0,1)))){
+				mV = (cB.rP(i,0,0)-cB.rP(i,1,0)) + (vT - destT);
+				setDimentions.call(bL[ii],mV,i,1);
 				} else {
-					var tV = Math.abs(cB.rP(xx,0,0)-destT);
-					var bV = Math.abs((cB.rP(xx,0,0)+cB.rP(xx,0,1)-cM(xx,x))-destT+fB.rP(xx,hashElem,1));
-					move = tV<=bV ? vT-cB.rP(xx,1,0):(vB-cB.rP(xx,1,0))-cB.rP(xx,0,1)+cM(xx,x);
-					var scr = tV<=bV ? cB.rP(xx,0,0)-vT:(cB.rP(xx,0,0)+cB.rP(xx,0,1))-vB-cM(xx,x);
-					vOT = (vT+scr)<cB.rP(xx,0,0) ? boxList[x].mainBox:vOT;
-					vOB = (vB+scr)>(cB.rP(xx,0,0)+cB.rP(xx,0,1)) ? boxList[x].mainBox:vOB;
-					setDimentions.call(boxList[x],move,xx,1);
+					var tV = Math.abs(cB.rP(i,0,0)-destT);
+					var bV = Math.abs((cB.rP(i,0,0)+cB.rP(i,0,1)-cM(i,ii))-destT+fB.rP(i,hE,1));
+					mV = tV<=bV ? vT-cB.rP(i,1,0):(vB-cB.rP(i,1,0))-cB.rP(i,0,1)+cM(i,ii);
+					var scr = tV<=bV ? cB.rP(i,0,0)-vT:(cB.rP(i,0,0)+cB.rP(i,0,1))-vB-cM(i,ii);
+					vOT = (vT+scr)<cB.rP(i,0,0) ? bL[ii].mainBox:vOT;
+					vOB = (vB+scr)>(cB.rP(i,0,0)+cB.rP(i,0,1)) ? bL[ii].mainBox:vOB;
+					setDimentions.call(bL[ii],mV,i,1);
 					}
 		}
 	}
+	
+	function cM(s,o){
+		var nO = bL[o].elements[1-s][0]; 
+		return bL[o].scrollMargin[1-s] ? fB.rP(s,nO,1):0;
+	}		
 }
 
 function autoRefresh(){
-	var bRM = this.refreshMe.bind(this);
-	this.refreshMe = bRM;
-	window.addEventListener("resize",bRM);
+	var that = this;
+	var bFindMyIds = findMyIds.bind(this);
+	window.addEventListener("resize",this.refreshMe);
 	if(window.MutationObserver){
-		var observer = new MutationObserver(function(mutations) {
-			mutations.forEach(function(mRec) {
-				bRM();
+		var oB = new MutationObserver(function(mT) {
+			mT.forEach(function(mR) {
+				that.refreshMe();
+				if((mR.addedNodes.length||mR.removedNodes.length)||condIdFinder(mR,0)){
+					bFindMyIds();
+				}
 			});
 		});
-		var target = this.contentBox;
-		var target2 = this.mainBox;
-		observer.observe(target, {childList:true, attributes:true, characterData:true, subtree:true});
-		observer.observe(target2, {attributes:true, characterData:true});
+		var tA = this.contentBox;
+		var tB = this.mainBox;
+		oB.observe(tA, {childList:true, attributes:true, characterData:true, subtree:true});
+		oB.observe(tB, {attributes:true, characterData:true});
 		} else if(window.MutationEvent) {
 			var eA = ["DOMAttrModified","DOMAttributeNameChanged","DOMCharacterDataModified","DOMElementNameChanged","DOMNodeInserted","DOMNodeRemoved"];
+			var eB = ["DOMNodeInserted","DOMNodeRemoved","DOMAttrModified"];
 					//"DOMSubtreeModified","DOMNodeInsertedIntoDocument","DOMNodeRemovedFromDocument","onpropertychange"
 			for(var i in eA){
-				this.mainBox.addEventListener(eA[i],bRM);
+				this.mainBox.addEventListener(eA[i],this.refreshMe);
+				}
+			for(var i in eB){
+				this.mainBox.addEventListener(eB[i],function(e){
+					if(condIdFinder(e,1)) bFindMyIds();
+				});
 				}
 			};
+			
+	function condIdFinder(obj,brwsr){
+		var attr = brwsr === 0 ? "attributeName":"attrName";
+
+		if(obj.target.hasAttribute("data-handyID")){
+			if(obj[attr]==="style"){
+				if(checkStyleVal(obj.target,"display")==="none"){
+					return true;
+				}
+			}
+		}
+		return false;
+	}			
 }
 
-handyScroller.prototype.refreshMe = function(){
+function checkStyleVal(o,p){
+	return window.getComputedStyle(o).getPropertyValue(p);
+}
+
+function bindPrototyped(){
+	this.refreshMe = this.protoRefreshMe.bind(this);
+	this.moveToID = this.protoMoveToID.bind(this);
+	this.moveToPx = this.protoMoveTo.bind(this,1);
+	this.moveToProc = this.protoMoveTo.bind(this,0);
+}
+
+handyScroller.prototype.protoRefreshMe = function(){
 	var m = this.mainBox.getBoundingClientRect();
 	var c = this.contentBox.getBoundingClientRect();
 	var n = [m.height,m.width,c.height,c.width];
@@ -485,23 +649,23 @@ handyScroller.prototype.refreshMe = function(){
 	}
 };
 
+handyScroller.prototype.protoMoveToID = function(iD,yT,yH,xL,xW){
+	var iE = document.getElementById(iD);
+	if(!iE) return;
+	handyScroller.prototype.currentScrollAlign = [yT,yH,xL,xW];
+	getHashObjects(this.mainBox,iE);	
+};
+
+handyScroller.prototype.protoMoveTo = function(u,y,x){
+	var s = [y,x];
+	for(var i=0;i<2;i++){
+		if(s[i]===null||this.elements[i][0]===null) continue;
+		var nD = u ? s[i]:((this.rP(i,1,1)+retMarg(this,i))-this.rP(i,0,1))*(s[i]/100);
+		this.contentScroll[i] = nD;
+		setDimentions.call(this,nD,i,1);
+	}
+};
 
 function positionContent(){
-	
-}
 
-
-
-function move(e,state){
-	var obj = document.getElementById("ruchomyDiv");
-	var style = !state ? "width":"height";
-	obj.style[style] = e.target.value + "px";
-}
-
-function addBox(side){
-	var s = side===0 ? "toRight":side===1 ? "toBottom":s;
-	var container = document.getElementById(s);
-	var newElem = document.createElement("DIV");
-	newElem.className = s;
-	container.appendChild(newElem);
 }
